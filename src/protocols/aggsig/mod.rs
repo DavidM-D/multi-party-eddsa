@@ -87,7 +87,7 @@ pub fn create_ephemeral_key_and_commit(
     create_ephemeral_key_and_commit_rng(keys, message, &mut thread_rng())
 }
 
-fn create_ephemeral_key_and_commit_rng(
+pub fn create_ephemeral_key_and_commit_rng(
     keys: &ExpandedKeyPair,
     message: &[u8],
     rng: &mut impl Rng,
