@@ -63,7 +63,7 @@ impl KeyAgg {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EphemeralKey {
     pub r: Scalar<Ed25519>,
     pub R: Point<Ed25519>,
