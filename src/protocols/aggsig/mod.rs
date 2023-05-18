@@ -132,6 +132,19 @@ pub fn partial_sign(
     }
 }
 
+pub fn partial_sign_hashed(message: &[u8], keys: &ExpandedKeyPair) -> Signature {
+    let r: Scalar<Ed25519> = Sha512::new()
+        .chain(&*keys.expanded_private_key.prefix.to_bytes())
+        .chain(message)
+        .result_scalar();
+    let R = &r * Point::generator();
+    let k = Signature::k_hashed(message);
+
+    let k_mul_sk = &k * &keys.expanded_private_key.private_key;
+    let s = r + k_mul_sk;
+    Signature { R, s }
+}
+
 pub fn sign_single(message: &[u8], keys: &ExpandedKeyPair) -> Signature {
     let r = Sha512::new()
         .chain(&*keys.expanded_private_key.prefix.to_bytes())
@@ -158,6 +171,31 @@ pub fn add_signature_parts(sigs: &[Signature]) -> Signature {
     }
 }
 
+pub fn add_signature_parts_hashed(sigs: &[Signature], pks: &[Point<Ed25519>]) -> Signature {
+    let mut agg_sig = Scalar::zero();
+    let mut agg_R = Point::zero();
+
+    for (sig, pk) in sigs.iter().zip(pks) {
+        let h = hashed_pk(pk);
+        agg_sig = agg_sig + &h * &sig.s;
+        agg_R = agg_R + &h * &sig.R;
+    }
+
+    Signature {
+        s: agg_sig,
+        R: agg_R,
+    }
+}
+
+pub fn add_pk_parts_hashed(pks: &[Point<Ed25519>]) -> Point<Ed25519> {
+    let mut agg_pk = Point::zero();
+    for pk in pks {
+        agg_pk = agg_pk + hashed_pk(pk) * pk;
+    }
+
+    agg_pk
+}
+
 pub fn verify_partial_sig(
     sig: &Signature,
     message: &[u8],
@@ -179,6 +217,13 @@ pub fn verify_partial_sig(
     } else {
         Err(ProofError)
     }
+}
+
+fn hashed_pk(pk: &Point<Ed25519>) -> Scalar<Ed25519> {
+    Sha512::new()
+        .chain(&[1])
+        .chain(&*pk.to_bytes(true))
+        .result_scalar()
 }
 
 mod test;

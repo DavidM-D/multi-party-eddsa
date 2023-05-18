@@ -92,12 +92,39 @@ impl Signature {
         }
     }
 
+    pub fn verify_hashed(
+        sigs: &[Self],
+        pks: &[Point<Ed25519>],
+        message: &[u8],
+    ) -> Result<(), ProofError> {
+        let agg_sig = aggsig::add_signature_parts_hashed(sigs, pks);
+        let agg_pk = aggsig::add_pk_parts_hashed(pks);
+        let k = Self::k_hashed(message);
+
+        let R_plus_kA = &agg_sig.R + k * &agg_pk;
+        let sG = &agg_sig.s * Point::generator();
+
+        if R_plus_kA == sG {
+            Ok(())
+        } else {
+            Err(ProofError)
+        }
+    }
+
     pub(crate) fn k(R: &Point<Ed25519>, PK: &Point<Ed25519>, message: &[u8]) -> Scalar<Ed25519> {
         let mut k = Sha512::new()
             .chain(&*R.to_bytes(true))
             .chain(&*PK.to_bytes(true))
             .chain(message)
             .finalize();
+        // reverse because BigInt uses BigEndian.
+        k.reverse();
+        // This will reduce it mod the group order.
+        Scalar::from_bigint(&BigInt::from_bytes(&k))
+    }
+
+    pub(crate) fn k_hashed(message: &[u8]) -> Scalar<Ed25519> {
+        let mut k = Sha512::new().chain(message).finalize();
         // reverse because BigInt uses BigEndian.
         k.reverse();
         // This will reduce it mod the group order.
